@@ -34,6 +34,11 @@ struct ModInfo {
     bool hasBehaviorPack = false;
 
     bool legacySDCafiine = false;
+
+    // Astra .sol package metadata. The encrypted manifest will populate richer
+    // fields once the v0.6 crypto/index reader is enabled.
+    bool solPackage = false;
+    uint16_t solFormatVersion = 0;
 };
 
 class ModManager {
