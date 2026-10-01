@@ -1,30 +1,30 @@
-name: Build Solar Launcher v0.5.1 Polish
+name: Build Astra Launcher v0.6 SOL Packages
 
 on:
   push:
-    branches: ["solar-launcher-v0.5.1-polish"]
+    branches: ["astra-v0.6-sol-packages"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-solar-v051:
+  build-astra-v06:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout polish branch
+      - name: Checkout Astra v0.6 branch
         uses: actions/checkout@v7
 
       - name: Build Wii U toolchain image
-        run: docker build -t solar-launcher-builder .
+        run: docker build -t astra-launcher-builder .
 
-      - name: Build SolarLauncher.wps
-        run: docker run --rm -v "$PWD:/project" solar-launcher-builder make
+      - name: Build Astra Launcher WPS
+        run: docker run --rm -v "$PWD:/project" astra-launcher-builder make
 
-      - name: Upload Solar Launcher v0.5.1 Polish
+      - name: Upload Astra Launcher v0.6 development build
         uses: actions/upload-artifact@v7
         with:
-          name: SolarLauncher-v0.5.1-Polish-wps
+          name: AstraLauncher-v0.6-SOL-Packages-wps
           path: SolarLauncher.wps
           if-no-files-found: error
