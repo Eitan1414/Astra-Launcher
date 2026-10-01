@@ -24,6 +24,28 @@ Astra Launcher is designed to detect the game being launched through its **Title
 
 > ⚠️ Astra Launcher is currently in early development. Most features described below are planned and may not be implemented yet.
 
+### Current development: v0.6 — SOL Package Engine
+
+Active development branch:
+
+~~~text
+astra-v0.6-sol-packages
+~~~
+
+The v0.6 work introduces Astra's native encrypted mod container, `.sol`.
+
+The first implementation milestones are:
+
+- detect and validate SOL packages by magic, format version and Title ID
+- add the PC-side **Astra Packager**
+- encrypt package metadata and files with authenticated encryption
+- decrypt package metadata on Wii U
+- expose packaged mods in the Astra pre-launch menu
+- serve packaged files to games without permanently replacing the installed originals
+- use the Cuphead 3–4 player project as the first advanced real-world SOL package test
+
+The initial SOL v1 draft uses independent compressed/encrypted file records so Astra can eventually decrypt only the resource requested by the game instead of unpacking the entire package.
+
 ---
 
 ## 🌙 Goals
@@ -478,9 +500,14 @@ The project is currently experimental and under active development.
 - Initial Cuphead 3-player experiments
 - Custom character support
 
-### v0.6 — Cuphead 4 Player
+### v0.6 — SOL Package Engine + Cuphead 4 Player
 
-- Four local players
+- Native encrypted `.sol` package format
+- PC-side Astra Packager
+- SOL header / Title ID validation
+- Authenticated package index decryption on Wii U
+- On-demand packaged file access and redirection
+- Four local Cuphead players
 - P3/P4 controller support
 - Custom P3/P4 sprites
 - HUD extensions
@@ -586,6 +613,36 @@ Astra Launcher is planned around several main systems:
                    ↓
               Launch Game
 ```
+
+---
+
+## 🔐 Native .sol Packages
+
+Astra v0.6 is introducing a native single-file mod container:
+
+~~~text
+MyMod/
+├── mod.json
+├── content/
+├── patches/
+└── addons/
+        ↓
+Astra Packager
+        ↓
+MyMod.sol
+        ↓
+Astra Launcher
+        ↓
+select mod before game launch
+        ↓
+decrypt / redirect required resources
+        ↓
+game starts with the mod enabled
+~~~
+
+The installed game files remain untouched. Disabling the mod simply allows the game to load its original resources again.
+
+The format is still experimental and is documented in the v0.6 development branch under `docs/SOL_FORMAT_DRAFT.md`.
 
 ---
 
