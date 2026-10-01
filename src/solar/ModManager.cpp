@@ -1,6 +1,7 @@
 #include "solar/ModManager.hpp"
 #include "solar/Logger.hpp"
 #include "solar/Paths.hpp"
+#include "solar/SolPackageReader.hpp"
 #include "solar/TitleManager.hpp"
 
 #include <algorithm>
@@ -26,6 +27,22 @@ bool IsDirectory(const std::string &path) {
 bool FileExists(const std::string &path) {
     struct stat info {};
     return stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode);
+}
+
+bool IsSolFilename(const std::string &name) {
+    if (name.size() < 4) {
+        return false;
+    }
+
+    std::string extension = name.substr(name.size() - 4);
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return extension == ".sol";
+}
+
+std::string SolDisplayName(const std::string &name) {
+    return name.size() > 4 ? name.substr(0, name.size() - 4) : name;
 }
 
 std::string ReadTextFile(const std::string &path) {
@@ -234,6 +251,45 @@ void ScanSolarMods(uint64_t titleId, std::vector<ModInfo> &mods) {
         }
 
         const std::string modPath = root + "/" + name;
+
+        if (FileExists(modPath) && IsSolFilename(name)) {
+            SolPackageHeader packageHeader;
+            std::string packageError;
+            if (!SolPackageReader::ReadHeader(modPath, packageHeader, &packageError)) {
+                Logger::Warn("Skipping SOL package %s: %s", modPath.c_str(), packageError.c_str());
+                continue;
+            }
+
+            if (!SolPackageReader::MatchesTitle(packageHeader, titleId)) {
+                Logger::Warn("Skipping SOL package %s: Title ID %016llX does not match %s",
+                             modPath.c_str(),
+                             static_cast<unsigned long long>(packageHeader.titleId),
+                             currentTitleId.c_str());
+                continue;
+            }
+
+            ModInfo mod;
+            mod.directoryName = name;
+            mod.path = modPath;
+            mod.name = SolDisplayName(name);
+            mod.author = "Encrypted package";
+            mod.version = "SOL v" + std::to_string(packageHeader.formatVersion);
+            mod.type = "sol-package";
+            mod.declaredTitleId = currentTitleId;
+            mod.enabled = true;
+            mod.priority = 0;
+            mod.defaultEnabled = true;
+            mod.defaultPriority = 0;
+            mod.solPackage = true;
+            mod.solFormatVersion = packageHeader.formatVersion;
+
+            Logger::Info("Astra SOL package detected: %s (format v%u)",
+                         mod.name.c_str(),
+                         static_cast<unsigned int>(mod.solFormatVersion));
+            mods.push_back(std::move(mod));
+            continue;
+        }
+
         if (!IsDirectory(modPath)) {
             continue;
         }
