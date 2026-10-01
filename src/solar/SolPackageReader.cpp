@@ -1,4 +1,5 @@
 #include "solar/SolPackageReader.hpp"
+#include "solar/SolCrypto.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -102,6 +103,83 @@ bool SolPackageReader::ReadHeader(const std::string &path,
         SetError(error, "SOL index extends beyond end of file");
         return false;
     }
+
+    if (error != nullptr) {
+        error->clear();
+    }
+    return true;
+}
+
+
+bool SolPackageReader::ReadEncryptedIndex(const std::string &path,
+                                          const SolPackageHeader &header,
+                                          std::vector<uint8_t> &encryptedIndex,
+                                          std::string *error) {
+    encryptedIndex.clear();
+
+    if (header.indexSize == 0 || header.indexSize > MaxIndexSize) {
+        SetError(error, "invalid SOL index size");
+        return false;
+    }
+
+    FILE *file = fopen(path.c_str(), "rb");
+    if (file == nullptr) {
+        SetError(error, "could not open package index");
+        return false;
+    }
+
+    if (fseek(file, static_cast<long>(header.indexOffset), SEEK_SET) != 0) {
+        fclose(file);
+        SetError(error, "could not seek to SOL index");
+        return false;
+    }
+
+    encryptedIndex.resize(header.indexSize);
+    const size_t bytesRead = fread(encryptedIndex.data(), 1, encryptedIndex.size(), file);
+    fclose(file);
+
+    if (bytesRead != encryptedIndex.size()) {
+        encryptedIndex.clear();
+        SetError(error, "could not read complete SOL index");
+        return false;
+    }
+
+    if (error != nullptr) {
+        error->clear();
+    }
+    return true;
+}
+
+bool SolPackageReader::DecryptIndex(const std::string &path,
+                                    const SolPackageHeader &header,
+                                    const std::array<uint8_t, 32> &key,
+                                    std::string &indexJson,
+                                    std::string *error) {
+    indexJson.clear();
+
+    std::vector<uint8_t> encryptedIndex;
+    if (!ReadEncryptedIndex(path, header, encryptedIndex, error)) {
+        return false;
+    }
+
+    static constexpr uint8_t IndexAad[] = {
+        'A', 'S', 'T', 'R', 'A', 'S', 'O', 'L', '-', 'I', 'N', 'D', 'E', 'X', '-', 'v', '1'
+    };
+
+    std::vector<uint8_t> plaintext;
+    if (!SolCrypto::DecryptChaCha20Poly1305(
+            key.data(),
+            header.indexNonce.data(),
+            IndexAad,
+            sizeof(IndexAad),
+            encryptedIndex.data(),
+            encryptedIndex.size(),
+            plaintext,
+            error)) {
+        return false;
+    }
+
+    indexJson.assign(reinterpret_cast<const char *>(plaintext.data()), plaintext.size());
 
     if (error != nullptr) {
         error->clear();
