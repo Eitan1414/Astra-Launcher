@@ -39,7 +39,7 @@ The first implementation milestones are:
 - detect and validate SOL packages by magic, format version and Title ID
 - add the PC-side **Astra Packager**
 - encrypt package metadata and files with authenticated encryption
-- decrypt package metadata on Wii U
+- decrypt package metadata on Wii U with ChaCha20-Poly1305 / mbedTLS
 - expose packaged mods in the Astra pre-launch menu
 - serve packaged files to games without permanently replacing the installed originals
 - use the Cuphead 3–4 player project as the first advanced real-world SOL package test
