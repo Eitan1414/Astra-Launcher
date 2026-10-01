@@ -14,9 +14,9 @@
 #include <wups/config/WUPSConfigItemBoolean.h>
 #include <wups/storage.h>
 
-WUPS_PLUGIN_NAME("Solar Launcher");
-WUPS_PLUGIN_DESCRIPTION("Universal Wii U modding framework for Aroma.");
-WUPS_PLUGIN_VERSION("v0.5.0-dev");
+WUPS_PLUGIN_NAME("Astra Launcher");
+WUPS_PLUGIN_DESCRIPTION("Astra universal Wii U modding framework for Aroma.");
+WUPS_PLUGIN_VERSION("v0.6.0-dev");
 WUPS_PLUGIN_AUTHOR("Eitan1414");
 WUPS_PLUGIN_LICENSE("Unlicensed");
 
@@ -95,7 +95,7 @@ void PreLaunchMenuChanged(ConfigItemBoolean *, bool newValue) {
 }
 
 WUPSConfigAPICallbackStatus ConfigMenuOpenedCallback(WUPSConfigCategoryHandle root) {
-    if (WUPSConfigItemBoolean_AddToCategory(root, EnabledConfigId, "Enable Solar Launcher",
+    if (WUPSConfigItemBoolean_AddToCategory(root, EnabledConfigId, "Enable Astra Launcher",
                                             DefaultEnabled, gEnabled, &EnabledChanged) !=
         WUPSCONFIG_API_RESULT_SUCCESS) {
         return WUPSCONFIG_API_CALLBACK_RESULT_ERROR;
@@ -150,7 +150,7 @@ INITIALIZE_PLUGIN() {
     // OSReport still captures directory-creation errors even if the SD path is unavailable.
     const bool baseDirectoriesReady = Solar::Paths::EnsureBaseDirectories();
 
-    WUPSConfigAPIOptionsV1 options = {.name = "Solar Launcher"};
+    WUPSConfigAPIOptionsV1 options = {.name = "Astra Launcher"};
     if (WUPSConfigAPI_Init(options, ConfigMenuOpenedCallback, ConfigMenuClosedCallback) !=
         WUPSCONFIG_API_RESULT_SUCCESS) {
         Solar::Logger::Error("Failed to initialize WUPS config API");
@@ -167,7 +167,7 @@ INITIALIZE_PLUGIN() {
     Solar::PatchEngine::Initialize();
 
     if (baseDirectoriesReady) {
-        Solar::Logger::Info("Solar Launcher v0.5 initialized");
+        Solar::Logger::Info("Astra Launcher v0.6 initialized");
     } else {
         // Keep an explicit diagnostic in OSReport; file logging may be unavailable.
         OSReport("[Solar][WARN] Solar Launcher v0.5 initialized without writable SD log directories\n");
@@ -180,7 +180,7 @@ DEINITIALIZE_PLUGIN() {
     Solar::RedirectEngine::Shutdown();
     Solar::GameAdapterRegistry::Reset();
     ResetMenuSessionState();
-    Solar::Logger::Info("Solar Launcher v0.5 deinitialized");
+    Solar::Logger::Info("Astra Launcher v0.6 deinitialized");
 }
 
 ON_APPLICATION_START() {
