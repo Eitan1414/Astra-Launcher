@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace Solar {
 
@@ -26,6 +27,17 @@ public:
     static bool ReadHeader(const std::string &path,
                            SolPackageHeader &header,
                            std::string *error = nullptr);
+
+    static bool ReadEncryptedIndex(const std::string &path,
+                                   const SolPackageHeader &header,
+                                   std::vector<uint8_t> &encryptedIndex,
+                                   std::string *error = nullptr);
+
+    static bool DecryptIndex(const std::string &path,
+                             const SolPackageHeader &header,
+                             const std::array<uint8_t, 32> &key,
+                             std::string &indexJson,
+                             std::string *error = nullptr);
 
     static bool MatchesTitle(const SolPackageHeader &header, uint64_t titleId);
 };
