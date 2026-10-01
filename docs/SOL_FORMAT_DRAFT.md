@@ -136,13 +136,20 @@ ASTRA_SOL_KEY_HEX
 - validate the encrypted-index size before reading it
 - expose the package in ModManager as a SOL package
 
-### Milestone 2 — next
+### Milestone 2 — in progress
 
-- add authenticated ChaCha20-Poly1305 decryption on Wii U
-- read/decrypt the package index
-- parse the embedded manifest
+Implemented:
+
+- authenticated ChaCha20-Poly1305 decryption primitive on Wii U through mbedTLS
+- encrypted package-index reading
+- authenticated index decryption API
+
+Still to do:
+
+- choose/provision the matching Astra package key without committing production key material
+- parse the decrypted embedded manifest
 - show real package name/author/version in the Astra menu
-- reject tampered packages cleanly
+- reject tampered packages cleanly at the ModManager/UI boundary
 
 ### Milestone 3
 
