@@ -2,7 +2,7 @@
   <img src="Assets/Solar-logo.png" width="500" alt="Solar Launcher">
 </p>
 
-<h1 align="center">☀️ Solar Launcher</h1>
+<h1 align="center">🌙 Astra Launcher — v0.6 development</h1>
 
 <p align="center">
   <b>Universal Wii U modding framework for Aroma</b><br>
@@ -11,18 +11,18 @@
 
 ---
 
-## What is Solar Launcher?
+## What is Astra Launcher?
 
-**Solar Launcher** is an experimental modding framework for the **Wii U** running under **Aroma**.
+**Astra Launcher** is an experimental modding framework for the **Wii U** running under **Aroma**. The project was previously named Solar Launcher; internal paths/namespaces are being kept compatible during the transition.
 
 Its goal is to provide one common launcher and runtime for different kinds of Wii U mods instead of requiring a completely separate loader for every project.
 
-Solar currently combines two layers:
+Astra currently combines two layers:
 
 1. **Universal mod loading** — file replacement, SDCafiine compatibility, priorities, saved selections, conflict detection and declarative patches.
 2. **Game Adapters** — trusted game-specific code for deeper gameplay modifications that cannot be expressed as simple file replacements.
 
-### Solar as a Cafiine / SDCafiine successor
+### Astra as a Cafiine / SDCafiine successor
 
 Solar Launcher is designed as a **modern, more feature-rich and more efficient alternative to Cafiine/SDCafiine** for Wii U modding under Aroma.
 
@@ -68,10 +68,19 @@ Solar-native mods can then use additional features that did not exist in the ori
 
 Current launcher work:
 
-```text
-Solar Launcher V0.5.1-polish
-Branch: solar-launcher-v0.5.1-polish
-```
+~~~text
+Astra Launcher v0.6 — SOL Package Engine
+Branch: astra-v0.6-sol-packages
+~~~
+
+Current v0.6 implementation:
+
+- SOL v1 fixed-header reader and validation
+- Title ID validation during mod scanning
+- .sol package detection in ModManager
+- draft PC-side Astra Packager
+- SOL v1 format documentation
+- next milestone: authenticated index decryption on Wii U
 
 Current Cuphead multiplayer work:
 
@@ -559,6 +568,16 @@ Simple games or file-replacement-only mods should require little code. Deep game
 ---
 
 # 🗺️ Roadmap
+
+## v0.6 — SOL Package Engine
+
+- finish authenticated SOL index decryption on Wii U
+- parse embedded package manifests
+- display package metadata in the pre-launch menu
+- decrypt/decompress individual package records on demand
+- connect SOL records to Astra file redirection without permanent game-file replacement
+- use Cuphead 3–4 player as the first advanced SOL package
+- continue P3 spawn → input → HUD → camera → revive
 
 ## Near term
 
