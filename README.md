@@ -62,6 +62,8 @@ Solar-native mods can then use additional features that did not exist in the ori
 
 > ⚠️ Solar Launcher is still in active development. Do not treat current development builds as a stable release.
 
+For a detailed record of external projects, libraries, tools, reverse-engineering references and AI assistance used during development, see **[PROVENANCE.md](PROVENANCE.md)**.
+
 ---
 
 # 🚧 Current status
