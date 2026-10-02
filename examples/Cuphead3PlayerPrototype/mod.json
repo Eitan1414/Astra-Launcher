@@ -1,0 +1,10 @@
+{
+  "name": "Cuphead 3 Player Prototype",
+  "author": "Eitan1414 / Pixel Plugin Studios",
+  "version": "0.1.0-prototype",
+  "titleId": "0005000021000000",
+  "type": "total-mod",
+  "enabled": true,
+  "priority": 500,
+  "minimumAstraVersion": "0.6.0"
+}
