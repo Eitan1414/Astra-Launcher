@@ -2,6 +2,7 @@
 #include "solar/SolCrypto.hpp"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <sys/stat.h>
 
@@ -36,6 +37,147 @@ void SetError(std::string *error, const char *message) {
     if (error != nullptr) {
         *error = message;
     }
+}
+
+size_t FindJsonValue(const std::string &json, const std::string &key, size_t start = 0) {
+    const std::string quotedKey = "\"" + key + "\"";
+    size_t cursor = json.find(quotedKey, start);
+    if (cursor == std::string::npos) {
+        return std::string::npos;
+    }
+
+    cursor = json.find(':', cursor + quotedKey.size());
+    if (cursor == std::string::npos) {
+        return std::string::npos;
+    }
+
+    ++cursor;
+    while (cursor < json.size() &&
+           (json[cursor] == ' ' || json[cursor] == '\t' || json[cursor] == '\r' || json[cursor] == '\n')) {
+        ++cursor;
+    }
+    return cursor;
+}
+
+bool ExtractObject(const std::string &json,
+                   const std::string &key,
+                   std::string &object,
+                   std::string *error) {
+    object.clear();
+
+    size_t cursor = FindJsonValue(json, key);
+    if (cursor == std::string::npos || cursor >= json.size() || json[cursor] != '{') {
+        SetError(error, "SOL index does not contain a manifest object");
+        return false;
+    }
+
+    const size_t objectStart = cursor;
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+
+    for (; cursor < json.size(); ++cursor) {
+        const char ch = json[cursor];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (ch == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (ch == '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch == '"') {
+            inString = true;
+            continue;
+        }
+
+        if (ch == '{') {
+            ++depth;
+        } else if (ch == '}') {
+            --depth;
+            if (depth == 0) {
+                object = json.substr(objectStart, cursor - objectStart + 1);
+                return true;
+            }
+        }
+    }
+
+    SetError(error, "SOL manifest object is truncated");
+    return false;
+}
+
+std::string ExtractJsonString(const std::string &json, const std::string &key) {
+    size_t cursor = FindJsonValue(json, key);
+    if (cursor == std::string::npos || cursor >= json.size() || json[cursor] != '"') {
+        return {};
+    }
+
+    ++cursor;
+    std::string value;
+    bool escaped = false;
+
+    for (; cursor < json.size(); ++cursor) {
+        const char ch = json[cursor];
+        if (escaped) {
+            switch (ch) {
+                case 'n': value.push_back('\n'); break;
+                case 'r': value.push_back('\r'); break;
+                case 't': value.push_back('\t'); break;
+                case '"': value.push_back('"'); break;
+                case '\\': value.push_back('\\'); break;
+                default: value.push_back(ch); break;
+            }
+            escaped = false;
+            continue;
+        }
+
+        if (ch == '\\') {
+            escaped = true;
+            continue;
+        }
+        if (ch == '"') {
+            break;
+        }
+        value.push_back(ch);
+    }
+
+    return value;
+}
+
+bool ExtractJsonBool(const std::string &json, const std::string &key, bool fallback) {
+    const size_t cursor = FindJsonValue(json, key);
+    if (cursor == std::string::npos) {
+        return fallback;
+    }
+    if (json.compare(cursor, 4, "true") == 0) {
+        return true;
+    }
+    if (json.compare(cursor, 5, "false") == 0) {
+        return false;
+    }
+    return fallback;
+}
+
+int ExtractJsonInt(const std::string &json, const std::string &key, int fallback) {
+    const size_t cursor = FindJsonValue(json, key);
+    if (cursor == std::string::npos) {
+        return fallback;
+    }
+
+    char *end = nullptr;
+    const long value = std::strtol(json.c_str() + cursor, &end, 10);
+    if (end == json.c_str() + cursor) {
+        return fallback;
+    }
+    return static_cast<int>(value);
 }
 
 } // namespace
@@ -180,6 +322,50 @@ bool SolPackageReader::DecryptIndex(const std::string &path,
     }
 
     indexJson.assign(reinterpret_cast<const char *>(plaintext.data()), plaintext.size());
+
+    if (error != nullptr) {
+        error->clear();
+    }
+    return true;
+}
+
+bool SolPackageReader::ParseManifest(const std::string &indexJson,
+                                     SolPackageManifest &manifest,
+                                     std::string *error) {
+    manifest = {};
+
+    std::string manifestObject;
+    if (!ExtractObject(indexJson, "manifest", manifestObject, error)) {
+        return false;
+    }
+
+    manifest.name = ExtractJsonString(manifestObject, "name");
+    manifest.author = ExtractJsonString(manifestObject, "author");
+    manifest.version = ExtractJsonString(manifestObject, "version");
+    manifest.type = ExtractJsonString(manifestObject, "type");
+    manifest.titleId = ExtractJsonString(manifestObject, "titleId");
+    manifest.enabled = ExtractJsonBool(manifestObject, "enabled", true);
+    manifest.priority = ExtractJsonInt(manifestObject, "priority", 0);
+
+    if (manifest.name.empty()) {
+        SetError(error, "SOL manifest is missing name");
+        return false;
+    }
+    if (manifest.version.empty()) {
+        SetError(error, "SOL manifest is missing version");
+        return false;
+    }
+    if (manifest.titleId.empty()) {
+        SetError(error, "SOL manifest is missing titleId");
+        return false;
+    }
+
+    if (manifest.author.empty()) {
+        manifest.author = "Unknown";
+    }
+    if (manifest.type.empty()) {
+        manifest.type = "sol-package";
+    }
 
     if (error != nullptr) {
         error->clear();
