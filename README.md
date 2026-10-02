@@ -1,672 +1,815 @@
 <p align="center">
-  <img src="Assets/Solar-logo.png" width="500" alt="Solar Launcher">
+  <img src="Assets/Astra-logo.png" width="500" alt="Astra Launcher">
 </p>
 
-<h1 align="center">🌙 Astra Launcher — v0.6 development</h1>
+<h1 align="center">🌙 Astra Launcher</h1>
 
 <p align="center">
-  <b>Universal Wii U modding framework for Aroma</b><br>
+  <b>Universal Wii U modding framework for Aroma</b>
+</p>
+
+<p align="center">
   Load. Combine. Expand.
 </p>
 
 ---
 
-## What is Astra Launcher?
+## About
 
-**Astra Launcher** is an experimental modding framework for the **Wii U** running under **Aroma**. The project was previously named Solar Launcher; internal paths/namespaces are being kept compatible during the transition.
+**Astra Launcher** is an experimental universal modding framework for the **Wii U**, designed to run under **Aroma**.
 
-Its goal is to provide one common launcher and runtime for different kinds of Wii U mods instead of requiring a completely separate loader for every project.
+The goal is to go beyond traditional file replacement and provide one unified system for loading different kinds of mods.
 
-Astra currently combines two layers:
+Astra Launcher is designed to detect the game being launched through its **Title ID**, find compatible mods on the SD card, and allow the user to choose which ones should be enabled.
 
-1. **Universal mod loading** — file replacement, SDCafiine compatibility, priorities, saved selections, conflict detection and declarative patches.
-2. **Game Adapters** — trusted game-specific code for deeper gameplay modifications that cannot be expressed as simple file replacements.
-
-### Astra as a Cafiine / SDCafiine successor
-
-Solar Launcher is designed as a **modern, more feature-rich and more efficient alternative to Cafiine/SDCafiine** for Wii U modding under Aroma.
-
-Instead of limiting the project to file replacement, Solar expands the same basic idea into a complete modding framework with features such as:
-
-- multiple mods enabled at the same time
-- mod enable/disable from a pre-launch interface
-- configurable priorities
-- replacement-file conflict detection
-- saved per-game selections
-- one-time vanilla launch
-- AOC replacement
-- declarative memory patches
-- FunctionPatcher-based native hooks
-- game-specific adapters
-- future Texture / Behavior / addon-style systems
-- diagnostics and file-backed logs
-- future beginner-oriented compatibility tooling
-
-Solar is also intended to reduce unnecessary overhead by keeping these systems inside one integrated Aroma/WUPS framework instead of stacking multiple independent loaders. Formal performance benchmarks against Cafiine/SDCafiine are still planned, so the performance goal should not yet be interpreted as a published benchmark result.
-
-Most importantly, Solar is designed to remain **backward-compatible with existing Cafiine/SDCafiine-style file replacement mods**. Existing packs can be detected from the normal legacy SD structure and used from Solar without forcing creators to rebuild every old mod in a new format.
-
-In other words:
-
-```text
-Existing Cafiine / SDCafiine mods
-              ↓
-        Solar compatibility
-              ↓
-   old packs keep working
-              +
- priorities / conflicts / UI / patches / adapters / new features
-```
-
-Solar-native mods can then use additional features that did not exist in the original Cafiine workflow.
-
-> ⚠️ Solar Launcher is still in active development. Do not treat current development builds as a stable release.
+> ⚠️ Astra Launcher is currently in early development. Most features described below are planned and may not be implemented yet.
 
 For a detailed record of external projects, libraries, tools, reverse-engineering references and AI assistance used during development, see **[PROVENANCE.md](PROVENANCE.md)**.
 
----
+### Current development: v0.6 — SOL Package Engine
 
-# 🚧 Current status
-
-Current launcher work:
+Active development branch:
 
 ~~~text
-Astra Launcher v0.6 — SOL Package Engine
-Branch: astra-v0.6-sol-packages
+astra-v0.6-sol-packages
 ~~~
 
-Current v0.6 implementation:
+The v0.6 work introduces Astra's native encrypted mod container, `.sol`.
 
-- SOL v1 fixed-header reader and validation
-- Title ID validation during mod scanning
-- .sol package detection in ModManager
-- draft PC-side Astra Packager
-- SOL v1 format documentation
-- Wii U ChaCha20-Poly1305 decryption via mbedTLS
-- encrypted index read/decrypt support
-- compile-time SOL key provisioning without committing production key material
-- decrypted manifest parsing into ModManager metadata
-- next milestone: per-file lookup + decrypt/decompress + package-backed redirection
+The first implementation milestones are:
 
-Current Cuphead multiplayer work:
+- detect and validate SOL packages by magic, format version and Title ID
+- add the PC-side **Astra Packager**
+- encrypt package metadata and files with authenticated encryption
+- decrypt package metadata on Wii U with ChaCha20-Poly1305 / mbedTLS
+- expose packaged mods in the Astra pre-launch menu
+- serve packaged files to games without permanently replacing the installed originals
+- use the Cuphead 3–4 player project as the first advanced real-world SOL package test
 
-```text
-Cuphead Player 3 — Test 2
-Branch: cuphead-player3-test2
-```
-
-The previous Cuphead Mono verification branch is kept separately:
-
-```text
-cuphead-test1b-verification
-```
-
-## ✅ Confirmed on real Wii U hardware
-
-The Cuphead **Test 1B** runtime verification was successfully completed on a real Wii U.
-
-Confirmed:
-
-- Solar launches under Aroma
-- Cuphead is detected correctly
-- the Cuphead Game Adapter is registered
-- `Unity-master.rpx` is found at runtime
-- `mono_compile_method` is located and hooked successfully
-- the runtime relocation delta is resolved correctly
-- Mono metadata helpers are resolved and validated
-- managed Cuphead methods are traced with their native compiled addresses
-- the normal executable-offset FunctionPatcher hook becomes **ACTIVE**
-- Solar's pre-launch menu session survives Cuphead boss death/restart/map reload callbacks without reopening
-
-The successful runtime delta observed during Test 1B was:
-
-```text
-linked mono_compile_method : 0x02067430
-runtime address            : 0x02067450
-delta                      : +0x20
-```
-
-Example methods successfully observed include:
-
-```text
-Level::OnPlayerJoined
-LevelHUD::OnPlayerJoined
-Level::OnPlayerDeath
-Level::OnPlayerRevive
-AbstractPlayerController::OnPreRevive
-AbstractPlayerController::OnRevive
-LevelHUDPlayer::OnHealthChanged
-LevelHUDPlayer::OnWeaponChanged
-LevelHUDPlayer::OnSuperChanged
-```
-
-This means the Mono bridge research phase is no longer blocking development of the actual Cuphead multiplayer mod.
+The initial SOL v1 draft uses independent compressed/encrypted file records so Astra can eventually decrypt only the resource requested by the game instead of unpacking the entire package.
 
 ---
 
-# ✅ Implemented Solar features
+## 🌙 Goals
 
-## Core
+Astra Launcher aims to support:
 
-- WUPS/Aroma plugin
-- current Title ID detection
-- per-game Solar directories
-- `mod.json` parsing
-- file-backed logging
-- Aroma configuration menu
-- per-title mod scanning
+- 🎨 Texture packs
+- 📁 File replacement
+- 🎵 Custom music and sounds
+- ⚙️ Gameplay patches
+- 🧠 Memory/function patches
+- 🧩 Multiple mods at the same time
+- ⚠️ Mod conflict detection
+- 📦 SDCafiine-style mod packs
+- 🗺️ Custom levels and maps
+- 👤 Custom characters
+- 🎮 Game-specific mod APIs
+- ➕ Advanced addons that can add new content instead of only replacing existing content
 
-Solar data is stored under:
+---
+
+## 🎮 How it should work
+
+When a compatible Wii U title starts:
+
+```text
+Wii U Menu
+     ↓
+Game launched
+     ↓
+🌙 Astra Launcher
+     ↓
+Title ID detected
+     ↓
+Compatible mods found
+     ↓
+Select enabled mods
+     ↓
+Apply file replacements / patches / addons
+     ↓
+Start the game
+```
+
+If no compatible mod is installed, the game should simply launch normally.
+
+---
+
+## 🧩 Mod Types
+
+### 📁 File Replacement
+
+The simplest type of Astra mod.
+
+Used for things such as:
+
+- textures
+- sprites
+- music
+- sound effects
+- UI
+- other game files
+
+The goal is to provide functionality similar to **SDCafiine** while integrating it into the Astra mod manager.
+
+Example:
+
+```text
+Original game file:
+
+/vol/content/player/texture.dds
+
+        ↓
+
+Astra replacement:
+
+SD:/wiiu/SolarLauncher/games/TITLE_ID/MyMod/content/player/texture.dds
+```
+
+---
+
+### ⚙️ Gameplay Patches
+
+Astra will eventually be able to apply modifications to the running game.
+
+Examples:
+
+- changing gameplay values
+- changing player limits
+- modifying mechanics
+- hooking game functions
+- changing game behavior
+- memory patches
+- function replacement
+
+For example:
+
+```text
+Original game:
+
+Maximum Players = 2
+
+        ↓
+
+Astra gameplay patch
+
+        ↓
+
+Maximum Players = 4
+```
+
+---
+
+### ➕ Addons
+
+The long-term goal of Astra is to support **real additional content**.
+
+Instead of only replacing:
+
+```text
+Original Level
+      ↓
+Modified Level
+```
+
+a Astra addon could potentially allow:
+
+```text
+Original Levels
+      +
+New Fan-Made Level
+      +
+New Boss
+      +
+New Character
+```
+
+Advanced addon support will require **game-specific Astra APIs/adapters**, because every game handles levels, characters, saves and other content differently.
+
+---
+
+## 📂 Planned SD Structure
 
 ```text
 SD:/wiiu/SolarLauncher/
 ├── games/
+│   └── TITLE_ID/
+│       ├── ModName/
+│       │   ├── mod.json
+│       │   ├── content/
+│       │   ├── patches/
+│       │   └── addons/
+│       │
+│       └── AnotherMod/
+│           ├── mod.json
+│           ├── content/
+│           ├── patches/
+│           └── addons/
+│
 ├── config/
 ├── cache/
 └── logs/
-    └── solar.log
 ```
 
-## File mods
-
-Solar uses `ContentRedirectionModule` for replacement layers.
-
-Supported generic payloads:
-
-```text
-content/   -> /vol/content
-aoc/       -> /vol/aoc
-```
-
-Features:
-
-- multiple mods at once
-- priority ordering
-- fallback to original game files
-- SDCafiine pack detection
-- Solar and SDCafiine packs in the same selector
-
-## Mod management
-
-The pre-launch menu currently supports:
-
-- enable / disable mods
-- per-game saved selections
-- change priority with L/R
-- reset a mod to its defaults
-- one-time vanilla launch
-- replacement-file conflict detection
-- technical details view
-- GamePad + Wii controller input
-- enabled-mod counter
-- page indicator
-- launch/save status messages
-
-## Patch Engine
-
-Supported foundations include:
-
-- `patches/` payloads
-- declarative JSON memory patches
-- address validation
-- expected-byte checks
-- overlap protection
-- original-byte restoration
-- `FunctionPatcherModule` integration
-- Native Hook Registry
-- game-specific trusted hook IDs
-
-## Game Adapter system
-
-Solar includes a reusable adapter layer for deeper game-specific mods.
-
-Current built-in research target:
-
-```text
-Cuphead Wii U
-```
-
-The generic Mono bridge is separated from Cuphead-specific metadata so other Unity/Mono titles can potentially reuse the same infrastructure later.
-
----
-
-# ☕ Cuphead Wii U support
-
-Verified target:
-
-```text
-Title ID:      0005000021000000
-Title version: 0
-Executable:    Unity-master.rpx
-Runtime:       Unity / Mono
-Gameplay DLL:  Assembly-CSharp.dll
-```
-
-Important managed systems identified so far include:
-
-```text
-PlayerManager
-PlayerInput
-AbstractPlayerController
-PlayerCameraController
-Level
-LevelHUD
-LevelHUDPlayer
-CreatePlayerTwoOnJoin
-SetupPlayerTwo
-RevivePlayer
-PlayerSuperGhost
-```
-
-The planned third player ID is:
-
-```text
-Player 1 = 0
-Player 2 = 1
-Player 3 = 2
-```
-
-> Player 3 is **not functional yet**. Test 2 is the first implementation phase after the successful Test 1B runtime verification.
-
----
-
-# 🎮 Cuphead Player 3 — Test 2
-
-Test 2 is being developed on:
-
-```text
-cuphead-player3-test2
-```
-
-The first Test 2 runtime can inspect the managed gameplay image and enumerate relevant Cuphead classes/methods with:
-
-- method names
-- parameter types
-- return types
-- static / instance flags
-- native compiled addresses for selected candidates
-
-The purpose is to identify the exact existing Cuphead join/setup path before invoking it for **Player ID 2**.
-
-Planned implementation order:
-
-```text
-Player 3 creation / registration
-        ↓
-input/controller source
-        ↓
-spawn + OnPlayerJoined
-        ↓
-HUD
-        ↓
-camera behavior
-        ↓
-death / revive / ghost behavior
-        ↓
-boss targeting and remaining 2-player assumptions
-```
-
-A third physical controller is not required for the earliest spawn/HUD development tests; independent P3 input will be validated later.
-
----
-
-# 🎨 Cuphead Texture Packs & Behavior Packs
-
-The `solar-launcher-v0.5.1-polish` branch now contains the first Cuphead-specific pack support.
-
-For Cuphead Title ID `0005000021000000`, Solar recognizes:
-
-```text
-textures/
-texture_pack/
-behavior/
-behavior_pack/
-```
-
-### Texture Pack
-
-A `textures/` or `texture_pack/` folder is treated as a `/vol/content` replacement layer.
-
-Example:
-
-```text
-SD:/wiiu/SolarLauncher/games/0005000021000000/MyTexturePack/
-├── mod.json
-└── textures/
-    └── <same relative path as the original Cuphead content file>
-```
-
-### Behavior Pack
-
-A `behavior/` or `behavior_pack/` folder is also mounted against `/vol/content` and is intended for game-behavior files such as managed assemblies or other Cuphead content-level logic files.
-
-Example:
-
-```text
-SD:/wiiu/SolarLauncher/games/0005000021000000/MyBehaviorPack/
-├── mod.json
-├── behavior/
-│   └── <same relative path as the original Cuphead file>
-└── patches/
-    └── <optional Solar patch definitions>
-```
-
-Behavior Packs are **not** a generic arbitrary-C# loader. They currently combine file replacement with Solar's Patch Engine / trusted adapter system when deeper runtime changes are needed.
-
-Texture and Behavior payloads participate in Solar's normal:
-
-- enable/disable system
-- priorities
-- conflict detection
-- saved selections
-
-The launcher reports payloads as:
-
-```text
-C / T / B / A / P
-
-C = content
-T = texture pack
-B = behavior pack
-A = AOC
-P = patches
-```
-
-> ⚠️ Cuphead Texture/Behavior Pack support is implemented in the development branch but still requires dedicated real-console validation with known test files.
-
-More details: [`docs/CUPHEAD_PACKS.md`](docs/CUPHEAD_PACKS.md)
-
----
-
-# 🖼️ Mod icons
-
-Mod icons are the next launcher UI feature being developed.
-
-Planned convention:
+A basic Astra mod could contain:
 
 ```text
 MyMod/
 ├── mod.json
-└── icon.png
-```
-
-Solar will display the custom icon for the selected mod when available.
-
-If a mod has no icon, the fallback will be the **Solar sun emblem** from the launcher logo.
-
-> This icon loader is planned/currently being worked on and should not yet be considered implemented until the PNG loading/rendering path is committed and validated.
-
----
-
-# 🕹️ Current launcher UI
-
-The V0.5.1 polish branch uses a dedicated layout for each display instead of squeezing the TV layout onto the GamePad.
-
-Current visual direction:
-
-- black background
-- embedded monochrome Solar binary/ASCII artwork derived from the approved Solar reference
-- Solar-orange separators and selection marker
-- separate full-width GamePad layout
-- 4 mods per GamePad page for more spacing
-- selected-mod information section
-- technical details toggle
-- enabled count, conflicts and page status
-
-Controls:
-
-```text
-D-Pad Up/Down   Select mod
-A               Enable / disable
-X               Normal / technical details
-L / R           Change priority
-Y               Reset selected mod
-+               Save selection and launch
-B               Launch vanilla once
-```
-
-Current development build label:
-
-```text
-SOLAR v0.5.1-polish
-```
-
----
-
-# 📦 Basic Solar mod structure
-
-A normal Solar mod lives under the game's Title ID:
-
-```text
-SD:/wiiu/SolarLauncher/games/<TITLE_ID>/<MOD_NAME>/
-```
-
-Example:
-
-```text
-MyMod/
-├── mod.json
-├── content/          # optional
-├── aoc/              # optional
-└── patches/          # optional
+├── content/
+├── patches/
+└── addons/
 ```
 
 Example `mod.json`:
 
 ```json
 {
-  "name": "My Solar Mod",
-  "author": "Author",
-  "version": "1.0",
-  "type": "content",
-  "titleId": "0005000012345678",
-  "enabled": true,
-  "priority": 0
+  "name": "Example Mod",
+  "author": "Example Author",
+  "version": "1.0.0",
+  "titleId": "00050000XXXXXXXX",
+  "type": "replacement"
 }
 ```
 
-Cuphead mods can additionally use the Texture/Behavior payload folders described above.
-
 ---
 
-# 📦 Legacy Cafiine / SDCafiine compatibility
+## ☕ SDCafiine Compatibility
 
-Solar is intentionally **backward-compatible with the legacy Cafiine/SDCafiine file-replacement ecosystem**.
+One of Astra Launcher's goals is to support existing **SDCafiine-style file replacement packs** whenever possible.
 
-Solar can discover existing SDCafiine packs under:
+This would allow users to keep using existing Wii U texture and file packs while benefiting from Astra's mod management system.
+
+Astra Launcher is not intended to simply replace SDCafiine, but to build upon the same general idea and extend it toward more advanced types of modding.
+
+Astra could support both structures:
+
+### Astra native mods
 
 ```text
-SD:/wiiu/sdcafiine/<TITLE_ID>/
+SD:/wiiu/SolarLauncher/
+└── games/
+    └── TITLE_ID/
+        └── MyMod/
+            ├── mod.json
+            └── content/
 ```
 
-Those packs can be shown alongside Solar-native mods in the same pre-launch selector and can benefit from Solar's management layer without requiring the original mod to be rewritten as a Solar-native package.
-
-For ordinary legacy replacement packs, the intended migration path is therefore:
+### Existing SDCafiine packs
 
 ```text
-Old Cafiine / SDCafiine pack
-          ↓
-Keep existing replacement files
-          ↓
-Solar detects the legacy pack
-          ↓
-Use it through Solar
+SD:/wiiu/sdcafiine/
+└── TITLE_ID/
+    └── MyTexturePack/
+        └── content/
 ```
 
-Solar-native mods can additionally use features that legacy packs do not provide by themselves, including priorities, conflict handling, memory patches, trusted runtime hooks and Game Adapters.
-
-This backward compatibility is important to the project: **moving to Solar should not mean abandoning the existing Wii U mod library.**
-
-Do not run a separate standalone SDCafiine replacement system in parallel when Solar is already applying the same game's replacement layers, as both systems can compete for content redirection.
+Astra could detect both automatically.
 
 ---
 
-# 🔐 User-owned game files
+## ⚠️ Mod Conflicts
 
-Solar does **not** aim to distribute copyrighted game files.
+Astra is planned to detect when multiple mods try to replace the same file.
 
-Game-specific research, conversion or compatibility tools should work from files legally supplied/extracted by the user from their own game installation.
-
-The Cuphead adapter development follows this model: Solar contains compatibility/hooking code, while the required Cuphead game files are supplied separately by the user for verification and testing.
-
----
-
-# 🧪 What still needs testing?
-
-Current important validation work includes:
-
-- V0.5.1-polish GamePad layout on hardware
-- mod icon rendering once implemented
-- Cuphead `textures/` redirection with an obvious single-file visual test
-- Cuphead `behavior/` replacement with a minimal safe behavior test
-- combined Texture + Behavior pack loading
-- priority/conflict behavior between `content/`, Texture and Behavior layers
-- Player 3 creation Test 2
-- independent third-controller input later
-- long-session stability
-- formal Cafiine/SDCafiine vs Solar performance benchmarking
-
----
-
-# 🧰 Planned Game Compatibility Kit
-
-A future **Solar Game Compatibility Kit** is planned to make adding support for new Wii U games much easier, including for people with little coding experience.
-
-The goal is not to remove all reverse engineering, but to avoid forcing every contributor to build a Game Adapter from an empty C++ file.
-
-Planned beginner-friendly helpers include:
-
-- a ready-to-fill Game Adapter template
-- guided Title ID / game version / executable configuration
-- example `mod.json`, `content/`, `textures/`, `behavior/` and `patches/` layouts
-- automatic generation of starter adapter files
-- checks for common RPX/RPL, Unity and Mono information when available
-- signature/address verification helpers
-- clear logs explaining what succeeded or failed
-- example adapters based on already-supported games
-- step-by-step documentation for basic file replacement before advanced hooks
-- PC-side helper tools for tasks that are impractical to perform directly on the Wii U
-
-A beginner should eventually be able to follow a workflow similar to:
+For example:
 
 ```text
-Select / identify game
-        ↓
-Enter Title ID + version
-        ↓
-Provide legally extracted executable/files for analysis
-        ↓
-Solar Compatibility Kit checks the game structure
-        ↓
-Generate starter Game Adapter
-        ↓
-Add simple mod payloads
-        ↓
-Test on Wii U
-        ↓
-Use advanced hooks only if the mod actually needs them
+HD Texture Pack
+└── player/
+    └── character.texture
+
+Custom Character
+└── player/
+    └── character.texture
 ```
 
-Simple games or file-replacement-only mods should require little code. Deep gameplay modifications may still require C/C++, reverse engineering or game-specific research.
+Astra could warn the user:
 
-> The Game Compatibility Kit is a **planned future release/tooling project** and is not available yet.
+```text
+⚠ MOD CONFLICT DETECTED
 
----
+2 mods modify:
 
-# 🗺️ Roadmap
+player/character.texture
 
-## v0.6 — SOL Package Engine
+Priority:
 
-- finish authenticated SOL index decryption on Wii U
-- parse embedded package manifests
-- display package metadata in the pre-launch menu
-- decrypt/decompress individual package records on demand
-- connect SOL records to Astra file redirection without permanent game-file replacement
-- use Cuphead 3–4 player as the first advanced SOL package
-- continue P3 spawn → input → HUD → camera → revive
+1. Custom Character
+2. HD Texture Pack
+```
 
-## Near term
+The mod with the highest priority would be loaded.
 
-- finish V0.5.1 launcher polish
-- custom `icon.png` support
-- Solar sun fallback icon
-- validate Cuphead Texture Packs
-- validate Cuphead Behavior Packs
-- continue Cuphead Player 3 Test 2
-- P3 spawn → input → HUD → camera → revive
-- benchmark Solar file redirection against legacy Cafiine/SDCafiine workflows
-
-## Later
-
-Possible future Solar targets/features include:
-
-- **Solar Game Compatibility Kit for beginner contributors**
-- Minecraft Wii U texture/resource pack conversion experiments
-- Minecraft Wii U skin-pack conversion/import
-- selected Bedrock/Java asset conversion where technically possible
-- richer game-specific adapters
-- automatic signature scanning
-- PC-side RPX/RPL analyzer
-- reusable addon APIs
-- additional Unity/Mono game adapters
-
-Large standalone ports such as a hypothetical Minecraft Java runtime are intentionally **not a current priority** while Solar and existing mods are still under active development.
+This would make it possible to combine multiple mods while reducing unexpected conflicts.
 
 ---
 
-# 🛠️ Building
+## 🪐 Mod Layer System
 
-Astra uses the Wii U homebrew toolchain and WUPS.
+Astra could treat enabled mods as layers.
 
-For v0.6 SOL development, encrypted package metadata can be unlocked with a 32-byte key supplied at build time:
+For example:
 
-~~~bash
-export ASTRA_SOL_KEY_HEX=<64 hexadecimal characters>
-make
+```text
+Original Game
+     ↓
+HD Texture Pack
+     ↓
+Custom Music Pack
+     ↓
+Gameplay Mod
+     ↓
+Custom Character Mod
+     ↓
+Game starts
+```
+
+When multiple mods modify the same resource, Astra would follow the configured priority order.
+
+---
+
+## 🎯 First Advanced Test Project
+
+One of the first advanced projects planned for Astra Launcher is a **3–4 player mod for the Wii U port of Cuphead**.
+
+This project will help test several Astra systems at once:
+
+- additional players
+- additional controllers
+- gameplay patches
+- custom player sprites
+- HUD modifications
+- file replacement
+- game-specific patches
+
+The goal is to expand Cuphead's existing local multiplayer support beyond two players.
+
+Concept:
+
+```text
+Player 1 → Cuphead
+Player 2 → Mugman
+Player 3 → Custom Mugman Variant
+Player 4 → Custom Mugman Variant
+```
+
+Players 3 and 4 are planned to support custom visual variants based on existing characters.
+
+This project could later serve as an early experiment for a future **Astra Cuphead API** capable of supporting more advanced fan-made content.
+
+Examples could eventually include:
+
+- fan-made levels
+- new bosses
+- new Run 'n Gun stages
+- new playable characters
+- custom islands
+- new weapons
+- new charms
+- additional music
+- additional visual content
+
+---
+
+## 🌍 Astra Game APIs
+
+Some types of content cannot be loaded universally because every game handles its internal systems differently.
+
+Astra therefore plans to support optional **game-specific APIs/adapters**.
+
+For example:
+
+```text
+🌙 Astra Launcher
+│
+├── Astra Cuphead API
+├── Astra Mario Kart 8 API
+├── Astra Minecraft API
+└── Other Game Adapters
+```
+
+These adapters could expose systems that mod creators can use without having to manually reverse-engineer every part of a game.
+
+Conceptually, a game API could support actions such as:
+
+```text
+RegisterLevel()
+RegisterCharacter()
+RegisterMap()
+RegisterBoss()
+RegisterMusic()
+RegisterWeapon()
+RegisterItem()
+```
+
+The exact available functionality would depend on each supported game.
+
+---
+
+## 🗺️ Example: Cuphead Fan-Made Island
+
+A future Cuphead addon could theoretically look like:
+
+```text
+FanmadeIsland/
+├── addon.json
+├── island.json
+│
+├── levels/
+│   ├── boss01/
+│   ├── boss02/
+│   └── runngun01/
+│
+├── map/
+│   └── island5/
+│
+├── sprites/
+├── music/
+└── sounds/
+```
+
+For example, `island.json` could describe the additional content:
+
+```json
+{
+  "name": "Inkwell Island 5",
+  "levels": [
+    {
+      "name": "Clockwork Chaos",
+      "type": "boss",
+      "path": "levels/boss01"
+    },
+    {
+      "name": "Toon Town Trouble",
+      "type": "run_and_gun",
+      "path": "levels/runngun01"
+    }
+  ]
+}
+```
+
+Astra would detect the addon and use the **Astra Cuphead API** to integrate the additional content into the game.
+
+---
+
+## 🛠️ Development
+
+Astra Launcher is planned around the Wii U **Aroma** environment and the **Wii U Plugin System (WUPS)**.
+
+The project is currently experimental and under active development.
+
+---
+
+## 🗓️ Development Roadmap
+
+### v0.1 — Astra Core
+
+- Title ID detection
+- SD mod scanning
+- `mod.json` support
+- Enable/disable mods
+- Basic configuration system
+- Basic logging
+
+### v0.2 — File Mods
+
+- File redirection
+- Texture/file packs
+- Initial SDCafiine compatibility
+- Multiple replacement packs
+- Basic Astra mod menu
+
+### v0.3 — Mod Management
+
+- Multiple simultaneous mods
+- Mod priorities
+- Conflict detection
+- Better mod metadata
+- Dependency support
+
+### v0.4 — Patch Engine
+
+- Memory patches
+- Function hooks
+- Game/version-specific patches
+- Improved debugging and logging
+
+### v0.5 — Advanced Mods
+
+- First advanced gameplay mods
+- Initial Cuphead 3-player experiments
+- Custom character support
+
+### v0.6 — SOL Package Engine + Cuphead 4 Player
+
+- Native encrypted `.sol` package format
+- PC-side Astra Packager
+- SOL header / Title ID validation
+- Authenticated package index decryption on Wii U
+- On-demand packaged file access and redirection
+- Four local Cuphead players
+- P3/P4 controller support
+- Custom P3/P4 sprites
+- HUD extensions
+- Camera modifications
+- Revive support
+- Boss targeting modifications
+
+### Future
+
+- Advanced addons
+- Game APIs
+- Custom levels
+- Custom maps
+- Custom characters
+- New gameplay content
+- Addon dependencies
+- Mod profiles
+- Community-created Game APIs
+
+---
+
+## 🔧 Planned Astra Architecture
+
+Astra Launcher is planned around several main systems:
+
+```text
+🌙 Astra Launcher
+│
+├── Title Manager
+│   ├── Detect current game
+│   ├── Read Title ID
+│   └── Detect game version
+│
+├── Mod Manager
+│   ├── Scan installed mods
+│   ├── Read mod.json
+│   ├── Enable / disable mods
+│   ├── Handle dependencies
+│   └── Handle priorities
+│
+├── Redirect Engine
+│   ├── Textures
+│   ├── Audio
+│   ├── Sprites
+│   ├── UI
+│   └── Game files
+│
+├── Patch Engine
+│   ├── Memory patches
+│   ├── Function hooks
+│   ├── Gameplay modifications
+│   └── Version-specific patches
+│
+├── Conflict Manager
+│   ├── Detect file conflicts
+│   ├── Detect incompatible mods
+│   └── Resolve priorities
+│
+└── Addon Engine
+    ├── Game APIs
+    ├── Levels
+    ├── Maps
+    ├── Characters
+    ├── Bosses
+    └── Additional content
+```
+
+---
+
+## 🌙 Astra Launcher Flow
+
+```text
+              Wii U Menu
+                   │
+                   ↓
+              Start a Game
+                   │
+                   ↓
+          🌙 Astra Launcher
+                   │
+                   ↓
+           Detect Title ID
+                   │
+                   ↓
+       Search Compatible Mods
+                   │
+                   ↓
+            Astra Mod Menu
+                   │
+          ┌────────┴────────┐
+          │                 │
+          ↓                 ↓
+     File Mods         Code Patches
+          │                 │
+          └────────┬────────┘
+                   │
+                   ↓
+              Addons/API
+                   │
+                   ↓
+            Resolve Conflicts
+                   │
+                   ↓
+              Launch Game
+```
+
+---
+
+## 🔐 Native .sol Packages
+
+Astra v0.6 is introducing a native single-file mod container:
+
+~~~text
+MyMod/
+├── mod.json
+├── content/
+├── patches/
+└── addons/
+        ↓
+Astra Packager
+        ↓
+MyMod.sol
+        ↓
+Astra Launcher
+        ↓
+select mod before game launch
+        ↓
+decrypt / redirect required resources
+        ↓
+game starts with the mod enabled
 ~~~
 
-When building through the repository Docker image, pass the same environment variable into the container:
+The installed game files remain untouched. Disabling the mod simply allows the game to load its original resources again.
 
-~~~bash
-docker run --rm -e ASTRA_SOL_KEY_HEX="$ASTRA_SOL_KEY_HEX" -v "$PWD:/project" astra-launcher-builder make
-~~~
+The format is still experimental and is documented in the v0.6 development branch under `docs/SOL_FORMAT_DRAFT.md`.
 
-No production SOL key is committed to the repository. Builds made without ASTRA_SOL_KEY_HEX still compile and can detect/validate SOL headers, but encrypted package metadata remains locked.
+---
 
-The PC-side packager must use the same key when creating the .sol file.
+## 📦 Astra Mod Types
 
-The repository also contains GitHub Actions workflows for development branches so test `.wps` builds can be produced without manually rebuilding the Wii U toolchain every time.
-
-Development artifacts are intentionally given distinct names where possible to avoid mixing experimental builds, for example:
+Astra Launcher currently plans four main mod categories:
 
 ```text
-SolarLauncher-Cuphead-Test1B-AllInOne-wps
-SolarLauncher-Cuphead-Player3-Test2-wps
-SolarLauncher-v0.5.1-Polish-wps
+[1] REPLACEMENT
+    └── Textures, audio, sprites and game files
+
+[2] PATCH
+    └── Memory and gameplay modifications
+
+[3] ADDON
+    └── New levels, maps, characters and content
+
+[4] TOTAL MOD
+    └── Combination of replacements, patches and addons
+```
+
+Example:
+
+```text
+Cuphead 4 Player
+
+Type:
+TOTAL MOD
+
+Uses:
+├── File Replacement
+│   └── P3/P4 sprites and HUD
+│
+├── Gameplay Patches
+│   └── 4-player support
+│
+└── Game API
+    └── Cuphead-specific integration
 ```
 
 ---
 
-# 📄 Logs
+## 🤝 Contributions
 
-Runtime logs are written to:
+Astra Launcher is intended to become an open modding framework for the Wii U community.
 
-```text
-SD:/wiiu/SolarLauncher/logs/solar.log
-```
+Contributions are welcome in areas such as:
 
-When reporting a crash, failed hook, missing mod or redirection problem, include this file whenever possible.
+- code
+- testing
+- documentation
+- game research
+- mod development
+- bug reports
+- UI design
+- reverse engineering
+- ideas
+- feature suggestions
+- game adapters
+- addon development
+
+Every contribution can help expand what is possible on the Wii U.
 
 ---
 
-# ⚠️ Development warning
+## ❤️ Credits
 
-Solar Launcher currently contains experimental runtime hooks and game-specific research code.
+### 🌙 Project
 
-Always keep backups of important SD-card data and game saves when testing development builds.
+**Astra Launcher**
+
+Created and led by **[Eitan1414/Pixel Plugin Studios]**
+
+Concept, project direction, testing, design and original idea by the Astra Launcher project creator.
+
+---
+
+### 🤖 Development Assistance
+
+Special thanks to **OpenAI's GPT-5.6 Sol** for development assistance, technical research, brainstorming, architecture design and support throughout the creation of this project.
+
+The project was originally named **Solar Launcher** in tribute to **GPT-5.6 Sol**, whose help contributed to this project and other Wii U development projects. Its yellow sun logo reflected that name.
+
+As the project continues with **GPT-6 Astra**, it is now called **Astra Launcher**, extending that tribute to this new chapter. The original tribute to Sol remains part of the project's history.
+
+The logo has evolved with the name: a **pale mauve moon** now replaces the yellow sun, while the familiar **white lightning-shaped L** is kept, enlarged and centered within the moon. **Astra** appears in glacier blue beside **Launcher** in white. This new visual identity connects the project's beginnings with its next chapter.
+
+> Astra Launcher is an independent community project and is not officially affiliated with or endorsed by OpenAI.
+(yep I'm using IA and what I need some moral and development help anyway I know that all of you already do a lot of crazy stuff with IA so don't blame me)
+
+---
+
+### 🛠️ Wii U Homebrew Community
+
+Astra Launcher builds upon years of work from the Wii U homebrew community.
+
+Special thanks to the developers and contributors behind projects and tools such as:
+
+- **Aroma**
+- **Wii U Plugin System (WUPS)**
+- **wut**
+- **devkitPro**
+- **devkitPPC**
+- **ContentRedirectionModule**
+- **FunctionPatcherModule**
+- **SDCafiine**
+- **FTPiiU Everywhere**
+
+Their work makes projects like Astra Launcher possible and continues to expand what the Wii U can do.
+
+---
+
+### 🎮 Cuphead Wii U
+
+Special thanks to **The Latte Team** for their work on the Wii U port of **Cuphead**, which is planned to serve as one of Astra Launcher's first advanced modding test cases.
+
+The Cuphead 3–4 player project is intended as a community modification and is separate from the original Wii U port.
+
+**Cuphead**, its characters, artwork and related intellectual property belong to **Studio MDHR** and their respective rights holders.
+
+---
+
+### 💙 Community
+
+Thanks to everyone who contributes:
+
+- code
+- documentation
+- testing
+- mods
+- game research
+- bug reports
+- suggestions
+- tools
+- tutorials
+
+Astra Launcher is intended to grow together with the Wii U modding and homebrew community.
+
+---
+
+## ⚠️ Disclaimer
+
+Astra Launcher is an unofficial homebrew project.
+
+It is not affiliated with or endorsed by:
+
+- Nintendo
+- OpenAI
+- Studio MDHR
+- The Latte Team
+- any game publisher or developer unless explicitly stated otherwise
+
+Users should provide their own legally obtained games and game files.
+
+Astra Launcher does not aim to distribute copyrighted game assets.
+
+Game names and trademarks belong to their respective owners.
 
 ---
 
 <p align="center">
-  <b>☀️ Solar Launcher — Load. Combine. Expand.</b>
+  🌙 <b>Astra Launcher</b><br>
+  <i>Universal Wii U modding framework</i>
+</p>
+
+<p align="center">
+  <b>Built for the Wii U modding community.</b>
 </p>
