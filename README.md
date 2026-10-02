@@ -80,9 +80,11 @@ Current v0.6 implementation:
 - .sol package detection in ModManager
 - draft PC-side Astra Packager
 - SOL v1 format documentation
-- Wii U ChaCha20-Poly1305 decryption primitive via mbedTLS
+- Wii U ChaCha20-Poly1305 decryption via mbedTLS
 - encrypted index read/decrypt support
-- next milestone: key provisioning + decrypted manifest parsing
+- compile-time SOL key provisioning without committing production key material
+- decrypted manifest parsing into ModManager metadata
+- next milestone: per-file lookup + decrypt/decompress + package-backed redirection
 
 Current Cuphead multiplayer work:
 
