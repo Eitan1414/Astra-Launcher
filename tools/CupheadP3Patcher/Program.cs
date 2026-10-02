@@ -451,7 +451,7 @@ static class Program
     // concrete instruction forms that can be patched directly.
     private static void SimplifyMacrosSafe(this MethodBody body)
     {
-        if (!body.HasInstructions)
+        if (body.Instructions.Count == 0)
             throw new InvalidOperationException("Method has no IL body");
     }
 }
