@@ -1,0 +1,42 @@
+name: Build Cuphead P3 Patcher
+
+on:
+  push:
+    branches: ["cuphead-player3-prototype"]
+    paths:
+      - "tools/CupheadP3Patcher/**"
+      - ".github/workflows/build-cuphead-p3-patcher.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-patcher:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout prototype branch
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish self-contained Linux patcher
+        run: >
+          dotnet publish tools/CupheadP3Patcher/CupheadP3Patcher.csproj
+          -c Release
+          -r linux-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:PublishTrimmed=false
+          -o build/CupheadP3Patcher
+
+      - name: Upload Cuphead P3 patcher
+        uses: actions/upload-artifact@v7
+        with:
+          name: CupheadP3Patcher-linux-x64
+          path: build/CupheadP3Patcher/
+          if-no-files-found: error
