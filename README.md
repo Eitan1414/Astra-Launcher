@@ -24,6 +24,8 @@ Astra Launcher is designed to detect the game being launched through its **Title
 
 > ⚠️ Astra Launcher is currently in early development. Most features described below are planned and may not be implemented yet.
 
+For a detailed record of external projects, libraries, tools, reverse-engineering references and AI assistance used during development, see **[PROVENANCE.md](PROVENANCE.md)**.
+
 ### Current development: v0.6 — SOL Package Engine
 
 Active development branch:
