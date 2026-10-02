@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <sys/stat.h>
+#include <zlib.h>
 
 namespace Solar {
 namespace {
@@ -178,6 +179,143 @@ int ExtractJsonInt(const std::string &json, const std::string &key, int fallback
         return fallback;
     }
     return static_cast<int>(value);
+}
+
+uint64_t ExtractJsonUInt64(const std::string &json, const std::string &key, uint64_t fallback) {
+    const size_t cursor = FindJsonValue(json, key);
+    if (cursor == std::string::npos) {
+        return fallback;
+    }
+
+    char *end = nullptr;
+    const unsigned long long value = std::strtoull(json.c_str() + cursor, &end, 10);
+    if (end == json.c_str() + cursor) {
+        return fallback;
+    }
+    return static_cast<uint64_t>(value);
+}
+
+bool ExtractArray(const std::string &json,
+                  const std::string &key,
+                  std::string &array,
+                  std::string *error) {
+    array.clear();
+
+    size_t cursor = FindJsonValue(json, key);
+    if (cursor == std::string::npos || cursor >= json.size() || json[cursor] != '[') {
+        SetError(error, "SOL index does not contain a files array");
+        return false;
+    }
+
+    const size_t start = cursor;
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+
+    for (; cursor < json.size(); ++cursor) {
+        const char ch = json[cursor];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (ch == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (ch == '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch == '"') {
+            inString = true;
+            continue;
+        }
+
+        if (ch == '[') {
+            ++depth;
+        } else if (ch == ']') {
+            --depth;
+            if (depth == 0) {
+                array = json.substr(start, cursor - start + 1);
+                return true;
+            }
+        }
+    }
+
+    SetError(error, "SOL files array is truncated");
+    return false;
+}
+
+bool ParseHexNonce(const std::string &hex,
+                   std::array<uint8_t, 12> &nonce) {
+    if (hex.size() != nonce.size() * 2) {
+        return false;
+    }
+
+    auto hexValue = [](char ch) -> int {
+        if (ch >= '0' && ch <= '9') return ch - '0';
+        if (ch >= 'a' && ch <= 'f') return 10 + (ch - 'a');
+        if (ch >= 'A' && ch <= 'F') return 10 + (ch - 'A');
+        return -1;
+    };
+
+    for (size_t i = 0; i < nonce.size(); ++i) {
+        const int high = hexValue(hex[i * 2]);
+        const int low = hexValue(hex[i * 2 + 1]);
+        if (high < 0 || low < 0) {
+            return false;
+        }
+        nonce[i] = static_cast<uint8_t>((high << 4) | low);
+    }
+    return true;
+}
+
+bool ReadPackageRange(const std::string &path,
+                      uint64_t offset,
+                      uint32_t size,
+                      std::vector<uint8_t> &output,
+                      std::string *error) {
+    output.clear();
+
+    struct stat info {};
+    if (stat(path.c_str(), &info) != 0 || !S_ISREG(info.st_mode)) {
+        SetError(error, "SOL package file does not exist");
+        return false;
+    }
+
+    const uint64_t fileSize = static_cast<uint64_t>(info.st_size);
+    if (offset > fileSize || static_cast<uint64_t>(size) > fileSize - offset) {
+        SetError(error, "SOL file record extends beyond end of package");
+        return false;
+    }
+
+    FILE *file = fopen(path.c_str(), "rb");
+    if (file == nullptr) {
+        SetError(error, "could not open SOL package payload");
+        return false;
+    }
+
+    if (fseek(file, static_cast<long>(offset), SEEK_SET) != 0) {
+        fclose(file);
+        SetError(error, "could not seek to SOL file record");
+        return false;
+    }
+
+    output.resize(size);
+    const size_t bytesRead = size == 0 ? 0 : fread(output.data(), 1, size, file);
+    fclose(file);
+
+    if (bytesRead != size) {
+        output.clear();
+        SetError(error, "could not read complete SOL file record");
+        return false;
+    }
+
+    return true;
 }
 
 } // namespace
@@ -365,6 +503,210 @@ bool SolPackageReader::ParseManifest(const std::string &indexJson,
     }
     if (manifest.type.empty()) {
         manifest.type = "sol-package";
+    }
+
+    if (error != nullptr) {
+        error->clear();
+    }
+    return true;
+}
+
+bool SolPackageReader::ParseFileRecords(const std::string &indexJson,
+                                         std::vector<SolFileRecord> &records,
+                                         std::string *error) {
+    records.clear();
+
+    std::string filesArray;
+    if (!ExtractArray(indexJson, "files", filesArray, error)) {
+        return false;
+    }
+
+    size_t cursor = 1;
+    while (cursor + 1 < filesArray.size()) {
+        while (cursor < filesArray.size() &&
+               (filesArray[cursor] == ' ' || filesArray[cursor] == '\t' ||
+                filesArray[cursor] == '\r' || filesArray[cursor] == '\n' ||
+                filesArray[cursor] == ',')) {
+            ++cursor;
+        }
+
+        if (cursor >= filesArray.size() || filesArray[cursor] == ']') {
+            break;
+        }
+
+        if (filesArray[cursor] != '{') {
+            SetError(error, "invalid SOL file record");
+            return false;
+        }
+
+        const size_t objectStart = cursor;
+        int depth = 0;
+        bool inString = false;
+        bool escaped = false;
+        size_t objectEnd = std::string::npos;
+
+        for (; cursor < filesArray.size(); ++cursor) {
+            const char ch = filesArray[cursor];
+
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                    continue;
+                }
+                if (ch == '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (ch == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (ch == '"') {
+                inString = true;
+                continue;
+            }
+
+            if (ch == '{') {
+                ++depth;
+            } else if (ch == '}') {
+                --depth;
+                if (depth == 0) {
+                    objectEnd = cursor;
+                    ++cursor;
+                    break;
+                }
+            }
+        }
+
+        if (objectEnd == std::string::npos) {
+            SetError(error, "truncated SOL file record");
+            return false;
+        }
+
+        const std::string object = filesArray.substr(objectStart, objectEnd - objectStart + 1);
+        SolFileRecord record;
+        record.path = ExtractJsonString(object, "path");
+        record.payloadOffset = ExtractJsonUInt64(object, "offset", UINT64_MAX);
+
+        const uint64_t encryptedSize = ExtractJsonUInt64(object, "encryptedSize", UINT64_MAX);
+        const uint64_t compressedSize = ExtractJsonUInt64(object, "compressedSize", UINT64_MAX);
+        const uint64_t originalSize = ExtractJsonUInt64(object, "originalSize", UINT64_MAX);
+
+        if (record.path.empty() ||
+            record.payloadOffset == UINT64_MAX ||
+            encryptedSize == UINT64_MAX || encryptedSize > UINT32_MAX ||
+            compressedSize == UINT64_MAX || compressedSize > UINT32_MAX ||
+            originalSize == UINT64_MAX || originalSize > UINT32_MAX) {
+            SetError(error, "SOL file record has invalid metadata");
+            return false;
+        }
+
+        record.encryptedSize = static_cast<uint32_t>(encryptedSize);
+        record.compressedSize = static_cast<uint32_t>(compressedSize);
+        record.originalSize = static_cast<uint32_t>(originalSize);
+        record.compression = ExtractJsonString(object, "compression");
+        record.encryption = ExtractJsonString(object, "encryption");
+
+        const std::string nonceHex = ExtractJsonString(object, "nonce");
+        if (!ParseHexNonce(nonceHex, record.nonce)) {
+            SetError(error, "SOL file record has invalid nonce");
+            return false;
+        }
+
+        records.push_back(std::move(record));
+    }
+
+    if (error != nullptr) {
+        error->clear();
+    }
+    return true;
+}
+
+bool SolPackageReader::ReadFile(const std::string &packagePath,
+                                const SolPackageHeader &header,
+                                const std::array<uint8_t, 32> &key,
+                                const std::string &virtualPath,
+                                std::vector<uint8_t> &output,
+                                std::string *error) {
+    output.clear();
+
+    std::string indexJson;
+    if (!DecryptIndex(packagePath, header, key, indexJson, error)) {
+        return false;
+    }
+
+    std::vector<SolFileRecord> records;
+    if (!ParseFileRecords(indexJson, records, error)) {
+        return false;
+    }
+
+    const SolFileRecord *record = nullptr;
+    for (const auto &candidate : records) {
+        if (candidate.path == virtualPath) {
+            record = &candidate;
+            break;
+        }
+    }
+
+    if (record == nullptr) {
+        SetError(error, "requested file is not present in SOL package");
+        return false;
+    }
+
+    if (record->encryption != "chacha20-poly1305" ||
+        record->compression != "zlib") {
+        SetError(error, "unsupported SOL file encoding");
+        return false;
+    }
+
+    const uint64_t payloadBase = header.indexOffset + static_cast<uint64_t>(header.indexSize);
+    if (record->payloadOffset > UINT64_MAX - payloadBase) {
+        SetError(error, "SOL payload offset overflow");
+        return false;
+    }
+
+    std::vector<uint8_t> encrypted;
+    if (!ReadPackageRange(packagePath,
+                          payloadBase + record->payloadOffset,
+                          record->encryptedSize,
+                          encrypted,
+                          error)) {
+        return false;
+    }
+
+    const std::string aad = "ASTRASOL-FILE-v1:" + record->path;
+    std::vector<uint8_t> compressed;
+    if (!SolCrypto::DecryptChaCha20Poly1305(
+            key.data(),
+            record->nonce.data(),
+            reinterpret_cast<const uint8_t *>(aad.data()),
+            aad.size(),
+            encrypted.data(),
+            encrypted.size(),
+            compressed,
+            error)) {
+        return false;
+    }
+
+    if (compressed.size() != record->compressedSize) {
+        SetError(error, "SOL compressed file size does not match index");
+        return false;
+    }
+
+    output.resize(record->originalSize);
+    uLongf outputSize = static_cast<uLongf>(output.size());
+    const int zlibResult = uncompress(
+        output.data(),
+        &outputSize,
+        compressed.data(),
+        static_cast<uLong>(compressed.size()));
+
+    if (zlibResult != Z_OK || outputSize != record->originalSize) {
+        output.clear();
+        SetError(error, "SOL zlib decompression failed");
+        return false;
     }
 
     if (error != nullptr) {
