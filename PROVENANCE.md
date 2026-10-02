@@ -257,6 +257,15 @@ This section is particularly important because Astra's first advanced test proje
 - Use in Astra/Cuphead research: inspection and manual editing/recompilation of managed `.NET/Mono` assemblies such as Cuphead's `Assembly-CSharp.dll`.
 - Relationship: reverse-engineering/development tool; not linked into Astra.
 
+### Mono.Cecil
+
+- Project: **Mono.Cecil**
+- Upstream: https://github.com/jbevain/cecil
+- License: **MIT**
+- Use in the Cuphead P3 prototype: managed assembly inspection and controlled rewriting by the repository's `tools/CupheadP3Patcher` utility.
+- Relationship: direct dependency of the PC-side development patcher; it is not linked into the Wii U Astra plugin.
+- Purpose: make the Wii U `Assembly-CSharp.dll` modifications reproducible without committing or redistributing the proprietary game assembly.
+
 ---
 
 ## 7. APIs and technical documentation used during v0.6 SOL work
