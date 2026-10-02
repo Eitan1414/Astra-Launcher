@@ -16,6 +16,16 @@ struct SolPackageHeader {
     uint64_t indexOffset = 36;
 };
 
+struct SolPackageManifest {
+    std::string name;
+    std::string author;
+    std::string version;
+    std::string type;
+    std::string titleId;
+    bool enabled = true;
+    int priority = 0;
+};
+
 class SolPackageReader {
 public:
     static constexpr uint16_t SupportedFormatVersion = 1;
@@ -38,6 +48,10 @@ public:
                              const std::array<uint8_t, 32> &key,
                              std::string &indexJson,
                              std::string *error = nullptr);
+
+    static bool ParseManifest(const std::string &indexJson,
+                              SolPackageManifest &manifest,
+                              std::string *error = nullptr);
 
     static bool MatchesTitle(const SolPackageHeader &header, uint64_t titleId);
 };
