@@ -28,6 +28,11 @@ INCLUDES    := include src
 CFLAGS      := -g -Wall -Wextra -O2 -ffunction-sections $(MACHDEP)
 CFLAGS      += $(INCLUDE) -D__WIIU__ -D__WUT__ -D__WUPS__
 CXXFLAGS    := $(CFLAGS) -std=gnu++17
+
+ifneq ($(strip $(ASTRA_SOL_KEY_HEX)),)
+CXXFLAGS    += -DASTRA_SOL_KEY_HEX=\"$(ASTRA_SOL_KEY_HEX)\"
+endif
+
 ASFLAGS     := -g $(ARCH)
 LDFLAGS      = -g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map) -T$(WUMS_ROOT)/share/libmappedmemory.ld $(WUPSSPECS)
 
