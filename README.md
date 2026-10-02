@@ -612,7 +612,24 @@ Large standalone ports such as a hypothetical Minecraft Java runtime are intenti
 
 # 🛠️ Building
 
-Solar uses the Wii U homebrew toolchain and WUPS.
+Astra uses the Wii U homebrew toolchain and WUPS.
+
+For v0.6 SOL development, encrypted package metadata can be unlocked with a 32-byte key supplied at build time:
+
+~~~bash
+export ASTRA_SOL_KEY_HEX=<64 hexadecimal characters>
+make
+~~~
+
+When building through the repository Docker image, pass the same environment variable into the container:
+
+~~~bash
+docker run --rm -e ASTRA_SOL_KEY_HEX="$ASTRA_SOL_KEY_HEX" -v "$PWD:/project" astra-launcher-builder make
+~~~
+
+No production SOL key is committed to the repository. Builds made without ASTRA_SOL_KEY_HEX still compile and can detect/validate SOL headers, but encrypted package metadata remains locked.
+
+The PC-side packager must use the same key when creating the .sol file.
 
 The repository also contains GitHub Actions workflows for development branches so test `.wps` builds can be produced without manually rebuilding the Wii U toolchain every time.
 
