@@ -1,6 +1,7 @@
 #include "solar/ModManager.hpp"
 #include "solar/Logger.hpp"
 #include "solar/Paths.hpp"
+#include "solar/SolKeyProvider.hpp"
 #include "solar/SolPackageReader.hpp"
 #include "solar/TitleManager.hpp"
 
@@ -276,15 +277,61 @@ void ScanSolarMods(uint64_t titleId, std::vector<ModInfo> &mods) {
             mod.version = "SOL v" + std::to_string(packageHeader.formatVersion);
             mod.type = "sol-package";
             mod.declaredTitleId = currentTitleId;
-            mod.enabled = true;
+            mod.enabled = false;
             mod.priority = 0;
-            mod.defaultEnabled = true;
+            mod.defaultEnabled = false;
             mod.defaultPriority = 0;
             mod.solPackage = true;
             mod.solFormatVersion = packageHeader.formatVersion;
 
-            Logger::Info("Astra SOL package detected: %s (format v%u)",
+            std::array<uint8_t, 32> solKey {};
+            std::string keyError;
+            if (!SolKeyProvider::GetKey(solKey, &keyError)) {
+                Logger::Warn("SOL package %s detected but metadata is locked: %s",
+                             mod.name.c_str(), keyError.c_str());
+                mods.push_back(std::move(mod));
+                continue;
+            }
+
+            std::string indexJson;
+            std::string indexError;
+            if (!SolPackageReader::DecryptIndex(modPath, packageHeader, solKey, indexJson, &indexError)) {
+                Logger::Warn("Skipping SOL package %s: %s", modPath.c_str(), indexError.c_str());
+                continue;
+            }
+
+            SolPackageManifest packageManifest;
+            std::string manifestError;
+            if (!SolPackageReader::ParseManifest(indexJson, packageManifest, &manifestError)) {
+                Logger::Warn("Skipping SOL package %s: %s", modPath.c_str(), manifestError.c_str());
+                continue;
+            }
+
+            if (!packageManifest.titleId.empty()) {
+                const std::string declared = NormalizeTitleId(packageManifest.titleId);
+                if (declared != currentTitleId) {
+                    Logger::Warn("Skipping SOL package %s: manifest Title ID %s does not match %s",
+                                 packageManifest.name.c_str(),
+                                 declared.c_str(),
+                                 currentTitleId.c_str());
+                    continue;
+                }
+            }
+
+            mod.name = packageManifest.name;
+            mod.author = packageManifest.author;
+            mod.version = packageManifest.version;
+            mod.type = packageManifest.type;
+            mod.declaredTitleId = packageManifest.titleId;
+            mod.enabled = packageManifest.enabled;
+            mod.priority = packageManifest.priority;
+            mod.defaultEnabled = mod.enabled;
+            mod.defaultPriority = mod.priority;
+
+            Logger::Info("Astra SOL package ready: %s v%s by %s (format v%u)",
                          mod.name.c_str(),
+                         mod.version.c_str(),
+                         mod.author.c_str(),
                          static_cast<unsigned int>(mod.solFormatVersion));
             mods.push_back(std::move(mod));
             continue;
