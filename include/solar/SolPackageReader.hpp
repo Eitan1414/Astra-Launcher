@@ -26,6 +26,17 @@ struct SolPackageManifest {
     int priority = 0;
 };
 
+struct SolFileRecord {
+    std::string path;
+    uint64_t payloadOffset = 0;
+    uint32_t encryptedSize = 0;
+    uint32_t compressedSize = 0;
+    uint32_t originalSize = 0;
+    std::array<uint8_t, 12> nonce{};
+    std::string compression;
+    std::string encryption;
+};
+
 class SolPackageReader {
 public:
     static constexpr uint16_t SupportedFormatVersion = 1;
@@ -52,6 +63,17 @@ public:
     static bool ParseManifest(const std::string &indexJson,
                               SolPackageManifest &manifest,
                               std::string *error = nullptr);
+
+    static bool ParseFileRecords(const std::string &indexJson,
+                                 std::vector<SolFileRecord> &records,
+                                 std::string *error = nullptr);
+
+    static bool ReadFile(const std::string &packagePath,
+                         const SolPackageHeader &header,
+                         const std::array<uint8_t, 32> &key,
+                         const std::string &virtualPath,
+                         std::vector<uint8_t> &output,
+                         std::string *error = nullptr);
 
     static bool MatchesTitle(const SolPackageHeader &header, uint64_t titleId);
 };
