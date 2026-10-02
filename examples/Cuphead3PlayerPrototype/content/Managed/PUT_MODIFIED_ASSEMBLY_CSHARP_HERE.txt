@@ -1,0 +1,6 @@
+Place the locally generated Wii U Assembly-CSharp.dll here before packaging.
+
+Expected path inside the Astra mod:
+content/Managed/Assembly-CSharp.dll
+
+Do NOT commit Cuphead game binaries or assets to the Astra repository.
