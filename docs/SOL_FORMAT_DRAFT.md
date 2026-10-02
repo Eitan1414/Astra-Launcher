@@ -136,20 +136,17 @@ ASTRA_SOL_KEY_HEX
 - validate the encrypted-index size before reading it
 - expose the package in ModManager as a SOL package
 
-### Milestone 2 — in progress
-
-Implemented:
+### Milestone 2 — implemented
 
 - authenticated ChaCha20-Poly1305 decryption primitive on Wii U through mbedTLS
 - encrypted package-index reading
 - authenticated index decryption API
+- compile-time key provisioning through ASTRA_SOL_KEY_HEX without committing production key material
+- decrypted embedded-manifest parsing
+- real package name/author/version/type/priority propagation into ModManager
+- clean rejection of invalid or unauthenticated packages during scanning
 
-Still to do:
-
-- choose/provision the matching Astra package key without committing production key material
-- parse the decrypted embedded manifest
-- show real package name/author/version in the Astra menu
-- reject tampered packages cleanly at the ModManager/UI boundary
+Builds made without a SOL key still detect and validate package headers, but keep encrypted metadata locked.
 
 ### Milestone 3
 
